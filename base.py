@@ -12,6 +12,9 @@ import time
 def most_interest_object(group):
     return np.sum(group.groupby('object').size()>10)
 
+def distance(df):
+    return df['time'].max()-df['time'].min()
+
 def extract_features(data,label=None):
     features = []
     g_enrollment_id = data.groupby('enrollment_id')
@@ -20,6 +23,11 @@ def extract_features(data,label=None):
     visit = g_enrollment_id.size()
     v=pd.DataFrame({'enrollment_id':visit.index,'visit_time':visit.values})
     features.append(v)
+
+    day_span = g_enrollment_id.apply(distance)
+    day_span = day_span.dt.days/visit
+    day_span=day_span.reset_index().rename_axis({0:'day_span'},axis=1)
+    features.append(day_span)
 
     last_mouth = data[data['time']>'2014-07-01T17:31:15']
     last_mouth_visit=last_mouth.groupby('enrollment_id').size()

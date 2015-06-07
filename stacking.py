@@ -4,6 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.naive_bayes import MultinomialNB,GaussianNB
 from sklearn.cross_validation import StratifiedKFold
+from sklearn.ensemble import RandomForestClassifier
 
 class Stacking(object):
     def __init__(self,estimator_dict=[],meta_class=neighbors.KNeighborsClassifier,meta_parameters={'n_neighbors':100}):
@@ -26,7 +27,7 @@ class Stacking(object):
             proba = estimator.predict_proba(x)[:,1]
                 #blend_test_j[:,i] = proba
             blend_test[:,j] = proba#blend_test_j.mean(1)
-        return blend_test
+        return blend_test.mean(axis=1).reshape(blend_test.shape[0],1)
 
     def fit(self,X,Y):
         self.X = X
@@ -35,14 +36,15 @@ class Stacking(object):
         skf = KFold(n=len(X),n_folds=10,shuffle=True)
         blend_train = np.zeros((X.shape[0], len(self.estimators)))
         for j,estimator in enumerate(self.estimators):
-            print "fit estimator: %d" % j
-            for train,test in skf:
-                x_train,y_train = X[train],Y[train]
-                x_test,y_test = X[test],Y[test]
-                estimator.fit(x_train,y_train)
-                proba = estimator.predict_proba(x_test)[:,1]
-                blend_train[test, j] = proba
-        meta_x = blend_train
+            #print "fit estimator: %d" % j
+            #for train,test in skf:
+                #x_train,y_train = X[train],Y[train]
+                #x_test,y_test = X[test],Y[test]
+                estimator.fit(X,Y)
+                proba = estimator.predict_proba(X)[:,1]
+                blend_train[:, j] = proba
+        meta_x = blend_train.mean(axis=1)
+        meta_x = meta_x.reshape(meta_x.shape[0],1)
         meta_y = Y
         self.meta_clf.fit(meta_x,meta_y)
 
@@ -57,13 +59,14 @@ class Stacking(object):
 if __name__ == '__main__':
     X,Y = train_sets()
     para = {neighbors.KNeighborsClassifier:{'n_neighbors':100},
-                    #MultinomialNB:{},
+                    #LogisticRegression:{},
+                    #RandomForestClassifier:{'n_estimators':100},
                     #LogisticRegression:{}}
-                    GradientBoostingClassifier:{'n_estimators':100}}
-                    #MultinomialNB:{}}
-    #measure(Stacking,{'estimator_dict':para,'meta_class':GradientBoostingClassifier,'meta_parameters':{'n_estimators':200}},X,Y,'Stacking') 
-    #gen_submission(Stacking,{'estimator_dict':para,'meta_class':LogisticRegression,'meta_parameters':{}},X,Y,'Stacking') 
+                    GradientBoostingClassifier:{'n_estimators':100},
+                    MultinomialNB:{}}
+    #measure(Stacking,{'estimator_dict':para,'meta_class':neighbors.KNeighborsClassifier,'meta_parameters':{'n_neighbors':100}},X,Y,'Stacking') 
     measure(Stacking,{'estimator_dict':para,'meta_class':LogisticRegression,'meta_parameters':{}},X,Y,'Stacking') 
+    #measure(Stacking,{'estimator_dict':para,'meta_class':MultinomialNB,'meta_parameters':{}},X,Y,'Stacking') 
 
 
 
