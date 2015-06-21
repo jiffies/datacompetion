@@ -3,7 +3,7 @@ from base import *
 from sklearn.naive_bayes import MultinomialNB,GaussianNB,BernoulliNB
 
 if __name__ == '__main__':
-    X,Y = train_sets()
+    X,Y = train_sets(reproduct=True)
     measure(MultinomialNB,{},X,Y,'NB') 
     #measure(GaussianNB,{},X,Y,'NB-Gaussian') 
     #gen_submission(GaussianNB,{},X,Y,'NB-Gaussian') 
