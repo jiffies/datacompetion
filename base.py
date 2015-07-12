@@ -7,6 +7,8 @@ from sklearn import neighbors
 from sklearn.cross_validation import KFold
 from sklearn import preprocessing 
 from matplotlib import pylab
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 import time
 import datetime
 import multiprocessing
@@ -231,11 +233,23 @@ def extract_features(data,log,label=None):
     v=pd.DataFrame({'enrollment_id':visit.index,'visit_time':visit.values})
     features.append(v)
 
+    #course_class = log.groupby(['enrollment_id','course_id']).size()
+    #course_class = course_class.unstack().sort_index(axis=1)
+    #course_class.reset_index(inplace=True)
+    #features.append(course_class)
+
     course_visit = log.groupby(['course_id','enrollment_id']).size().mean(level=0).reset_index().rename_axis({0:'course_visit'},axis=1)
     course_visit = pd.merge(log,course_visit,on='course_id',how='outer')
     course_visit = course_visit[['enrollment_id','course_visit']]
     course_visit = course_visit.groupby('enrollment_id').mean().reset_index()
     features.append(course_visit)
+
+    course_object = log.groupby('course_id').apply(object_num).reset_index().rename_axis({0:'course_object'},axis=1)
+    course_object = pd.merge(log,course_object,on='course_id',how='outer')
+    course_object = course_object[['enrollment_id','course_object']]
+    course_object = course_object.groupby('enrollment_id').mean().reset_index()
+    features.append(course_object)
+
 
 
     course_lv = log.groupby('course_id')
@@ -363,10 +377,14 @@ def measure(clf_class,parameters,x,y,name,data_size=None, plot=False):
         train_score = clf.score(x_train, y_train)
         test_score = clf.score(x_test, y_test)
 
+        test_predict = clf.predict(x_test)
         train_errors.append(1 - train_score)
         test_errors.append(1 - test_score)
         print "train_error =%f\ttest_error =%f\n" % (1-train_score,1-test_score)
-
+        cm = confusion_matrix(y_test,test_predict)
+        plt.figure()
+        plot_confusion_matrix(cm)
+        #plt.show()
         scores.append(test_score)
         proba = clf.predict_proba(x_test)
         roc_auc.append(roc_auc_score(y_test,proba[:,1]))
@@ -385,7 +403,10 @@ def train_sets(reproduct=False):
         truth_train = pd.read_csv('../train/truth_train.csv',names=['enrollment_id','drop'])
         log_train = pd.merge(data,enroll_train,on="enrollment_id",how="outer")
         enroll_train = pd.merge(enroll_train,truth_train,on="enrollment_id",how="outer")
+        start = time.time()
         result = extract_features(data,log_train,label=truth_train)
+        end = time.time()
+        print "extract features use time %f " % (end-start)
         result.to_csv('features.csv')
     else:
         result = pd.read_csv('features.csv',index_col=0)
@@ -443,6 +464,17 @@ def plot_bias_variance(data_sizes, train_errors, test_errors, name, title):
     pylab.legend(["train error", "test error"], loc="upper right")
     pylab.grid(True, linestyle='-', color='0.75')
     pylab.savefig("bv_" + name.replace(" ", "_") + ".png", bbox_inches="tight")
+
+def plot_confusion_matrix(cm, title='Confusion matrix', cmap=plt.cm.Blues):
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(2)
+    plt.xticks(tick_marks, ['0','1'], rotation=45)
+    plt.yticks(tick_marks, ['0','1'])
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
 
 def bias_variance_analysis(clf_class, parameters,x,y, name):
     data_sizes = np.arange(1000, 10000, 1000)
